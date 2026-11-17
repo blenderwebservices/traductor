@@ -1,0 +1,88 @@
+{
+  "name": "astro-traductor",
+  "version": "1.0.0",
+  "description": "App de Traductor Universal IA con interfaz modal tipo Spotlight / Raycast en React Native para macOS",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev:ui": "vite",
+    "build:ui": "vite build",
+    "build:native": "mkdir -p bin && swiftc native/ocr-helper.swift -o bin/ocr-helper -O && swiftc native/cmd-tap-listener.swift -o bin/cmd-tap-listener -O",
+    "electron:start": "node electron/start.js",
+    "build": "npm run build:native && npm run build:ui",
+    "start": "npm run build:ui && node electron/start.js",
+    "dev": "npm run build:ui && node electron/start.js",
+    "dist:dmg": "npm run build && electron-builder --mac dmg",
+    "dist:dir": "npm run build && electron-builder --mac dir",
+    "dist": "npm run build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.astro.traductor",
+    "productName": "Astro",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Astro Traductor IA",
+      "contents": [
+        {
+          "x": 130,
+          "y": 150
+        },
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "bin/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bin",
+        "to": "bin"
+      }
+    ]
+  },
+  "keywords": [
+    "react-native",
+    "traductor",
+    "astro",
+    "ai",
+    "macos",
+    "spotlight",
+    "raycast"
+  ],
+  "dependencies": {
+    "expo": "^58.0.26",
+    "expo-dev-client": "~58.0.21",
+    "lucide-react": "^1.74.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-native": "0.88.1",
+    "react-native-web": "^0.21.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.3.4",
+    "electron-builder": "^26.18.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
