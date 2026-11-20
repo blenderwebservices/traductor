@@ -54,13 +54,18 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
   };
 
   return (
-    <View style={[styles.container, isDark ? styles.borderDark : styles.borderLight]}>
+    <View style={[styles.container, isDark ? styles.borderDark : styles.borderLight, styles.dragHandle]}>
+      {/* Drag grip indicator */}
+      <View style={styles.dragGrip} accessibilityLabel="Mover ventana">
+        <Text style={[styles.dragGripIcon, isDark ? styles.textMutedDark : styles.textMutedLight]}>⋮⋮</Text>
+      </View>
+
       <View style={styles.langSelectorRow}>
         {/* Source Language Button */}
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => setPickerMode('source')}
-          style={[styles.langButton, isDark ? styles.langButtonDark : styles.langButtonLight]}
+          style={[styles.langButton, styles.noDrag, isDark ? styles.langButtonDark : styles.langButtonLight]}
         >
           <Text style={[styles.langButtonText, isDark ? styles.textDark : styles.textLight]} numberOfLines={1}>
             {getSourceDisplay()}
@@ -72,7 +77,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onSwapLanguages}
-          style={[styles.swapButton, isDark ? styles.swapButtonDark : styles.swapButtonLight]}
+          style={[styles.swapButton, styles.noDrag, isDark ? styles.swapButtonDark : styles.swapButtonLight]}
           accessibilityLabel="Invertir idiomas"
         >
           <Text style={[styles.swapIcon, isDark ? styles.textDark : styles.textLight]}>⇄</Text>
@@ -82,7 +87,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => setPickerMode('target')}
-          style={[styles.langButton, isDark ? styles.langButtonDark : styles.langButtonLight]}
+          style={[styles.langButton, styles.noDrag, isDark ? styles.langButtonDark : styles.langButtonLight]}
         >
           <Text style={[styles.langButtonText, isDark ? styles.textDark : styles.textLight]} numberOfLines={1}>
             {getTargetDisplay()}
@@ -90,16 +95,17 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
           <Text style={styles.chevron}>▾</Text>
         </TouchableOpacity>
 
-        {/* Pin Target Button */}
+        {/* Pin Window Button (Chincheta) */}
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onTogglePin}
           style={[
             styles.iconButton,
+            styles.noDrag,
             isPinned && styles.pinActive,
             isDark ? styles.iconButtonDark : styles.iconButtonLight,
           ]}
-          accessibilityLabel="Fijar idioma de destino"
+          accessibilityLabel={isPinned ? 'Ventana fijada: no se cierra al hacer clic afuera' : 'Fijar ventana en pantalla'}
         >
           <Text style={[styles.pinIcon, isPinned && styles.pinIconActive]}>
             {isPinned ? '📌' : '📍'}
@@ -112,7 +118,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onOpenSettings}
-          style={[styles.aiStatusPill, isDark ? styles.aiStatusPillDark : styles.aiStatusPillLight]}
+          style={[styles.aiStatusPill, styles.noDrag, isDark ? styles.aiStatusPillDark : styles.aiStatusPillLight]}
           accessibilityLabel="Estado de la IA"
         >
           <View style={[styles.aiDot, isTranslating ? styles.aiDotBusy : styles.aiDotReady]} />
@@ -124,7 +130,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onOpenHistory}
-          style={[styles.iconButton, isDark ? styles.iconButtonDark : styles.iconButtonLight]}
+          style={[styles.iconButton, styles.noDrag, isDark ? styles.iconButtonDark : styles.iconButtonLight]}
           accessibilityLabel="Historial"
         >
           <Text style={styles.actionIcon}>🕒</Text>
@@ -133,7 +139,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={onOpenSettings}
-          style={[styles.iconButton, isDark ? styles.iconButtonDark : styles.iconButtonLight]}
+          style={[styles.iconButton, styles.noDrag, isDark ? styles.iconButtonDark : styles.iconButtonLight]}
           accessibilityLabel="Ajustes"
         >
           <Text style={styles.actionIcon}>⚙️</Text>
@@ -214,9 +220,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
+  },
+  dragHandle: {
+    WebkitAppRegion: 'drag',
+    cursor: 'grab',
+  } as any,
+  noDrag: {
+    WebkitAppRegion: 'no-drag',
+    cursor: 'pointer',
+  } as any,
+  dragGrip: {
+    paddingRight: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dragGripIcon: {
+    fontSize: 13,
+    letterSpacing: -2,
+    opacity: 0.5,
   },
   borderDark: {
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',

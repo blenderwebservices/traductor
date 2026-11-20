@@ -53,6 +53,9 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   useEffect(() => {
     setTargetLang(settings.defaultTargetLang);
     setTone(settings.selectedTone);
+    if (window.electronAPI) {
+      window.electronAPI.setWindowPinned(!!settings.isWindowPinned);
+    }
   }, []);
 
   // Main translation function
@@ -202,13 +205,19 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   };
 
   // Text-to-Speech
-  const handleSpeak = (text: string, lang: string) => {
+  const handleSpeak = (text: string, lang: string, voice?: string) => {
     if (!text) return;
+    const chosenVoice = voice && voice !== 'auto' ? voice : undefined;
     if (window.electronAPI) {
-      window.electronAPI.speakText(text, lang);
+      window.electronAPI.speakText(text, lang, chosenVoice);
     } else if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
+      if (chosenVoice) {
+        const vList = window.speechSynthesis.getVoices();
+        const found = vList.find((v) => v.name === chosenVoice);
+        if (found) utterance.voice = found;
+      }
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -226,10 +235,13 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   };
 
   const handleTogglePin = () => {
-    const nextPinned = !settings.isTargetPinned;
-    const updated = { ...settings, isTargetPinned: nextPinned };
+    const nextPinned = !settings.isWindowPinned;
+    const updated = { ...settings, isWindowPinned: nextPinned };
     setSettings(updated);
     storageService.saveSettings(updated);
+    if (window.electronAPI) {
+      window.electronAPI.setWindowPinned(nextPinned);
+    }
   };
 
   const handleSelectTone = (newTone: Tone) => {
@@ -246,7 +258,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         sourceLang={sourceLang}
         targetLang={targetLang}
         detectedLang={detectedLang}
-        isPinned={settings.isTargetPinned}
+        isPinned={!!settings.isWindowPinned}
         isDark={isDark}
         isTranslating={isTranslating}
         providerLabel={settings.provider === 'gemini' ? (settings.geminiModel || 'gemini-3.8-flash') : settings.provider.toUpperCase()}
@@ -295,7 +307,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
 
               {sourceText.trim().length > 0 && (
                 <TouchableOpacity
-                  onPress={() => handleSpeak(sourceText, detectedLang || sourceLang)}
+                  onPress={() => handleSpeak(sourceText, detectedLang || sourceLang, settings.sourceVoice)}
                   style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
                   accessibilityLabel="Pronunciar texto original"
                 >
@@ -365,7 +377,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
             <View style={styles.outputActionRow}>
               <View style={styles.leftActions}>
                 <TouchableOpacity
-                  onPress={() => handleSpeak(translatedText, targetLang)}
+                  onPress={() => handleSpeak(translatedText, targetLang, settings.targetVoice)}
                   style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
                   accessibilityLabel="Pronunciar traducción"
                 >
@@ -443,6 +455,9 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
           setSettings(newSettings);
           storageService.saveSettings(newSettings);
           setTargetLang(newSettings.defaultTargetLang);
+          if (window.electronAPI) {
+            window.electronAPI.setWindowPinned(!!newSettings.isWindowPinned);
+          }
         }}
       />
 

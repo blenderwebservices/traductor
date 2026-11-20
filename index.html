@@ -17,6 +17,22 @@
         -webkit-user-select: none;
       }
 
+      /* Native window dragging support */
+      .window-draggable {
+        -webkit-app-region: drag;
+      }
+
+      .window-non-draggable,
+      button,
+      input,
+      textarea,
+      select,
+      a,
+      [role="button"],
+      [tabindex] {
+        -webkit-app-region: no-drag !important;
+      }
+
       * {
         box-sizing: border-box;
       }

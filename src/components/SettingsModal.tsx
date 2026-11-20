@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, ScrollView, ActivityIndicator } from 'react-native';
-import { AIProvider, AppSettings, LanguageCode } from '../types';
+import { AIProvider, AppSettings, LanguageCode, VoiceOption } from '../types';
 import { LANGUAGES, aiService } from '../services/aiService';
 
 interface SettingsModalProps {
@@ -10,6 +10,18 @@ interface SettingsModalProps {
   onClose: () => void;
   onSaveSettings: (settings: AppSettings) => void;
 }
+
+const fallbackVoices: VoiceOption[] = [
+  { name: 'Paulina', lang: 'es_MX', example: '¡Hola! Me llamo Paulina.' },
+  { name: 'Mónica', lang: 'es_ES', example: '¡Hola! Me llamo Mónica.' },
+  { name: 'Eddy (Español (México))', lang: 'es_MX', example: '¡Hola! Me llamo Eddy.' },
+  { name: 'Samantha', lang: 'en_US', example: 'Hello! My name is Samantha.' },
+  { name: 'Daniel', lang: 'en_GB', example: 'Hello! My name is Daniel.' },
+  { name: 'Thomas', lang: 'fr_FR', example: 'Bonjour, je m’appelle Thomas.' },
+  { name: 'Anna', lang: 'de_DE', example: 'Hallo, ich heiße Anna.' },
+  { name: 'Alice', lang: 'it_IT', example: 'Ciao, mi chiamo Alice.' },
+  { name: 'Luciana', lang: 'pt_BR', example: 'Olá, meu nome é Luciana.' },
+];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   visible,
@@ -21,6 +33,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [current, setCurrent] = useState<AppSettings>(settings);
   const [hasAccessibility, setHasAccessibility] = useState<boolean>(true);
   const [testStatus, setTestStatus] = useState<{ loading: boolean; success?: boolean; message?: string } | null>(null);
+  const [voices, setVoices] = useState<VoiceOption[]>(fallbackVoices);
+  const [voicePickerTarget, setVoicePickerTarget] = useState<'source' | 'target' | null>(null);
+  const [voiceSearch, setVoiceSearch] = useState('');
 
   useEffect(() => {
     setCurrent(settings);
@@ -30,6 +45,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       window.electronAPI.checkAccessibility().then((trusted) => {
         setHasAccessibility(trusted);
       });
+      window.electronAPI.getVoices().then((sysVoices) => {
+        if (sysVoices && sysVoices.length > 0) {
+          setVoices(sysVoices);
+        }
+      }).catch(() => {});
     }
   }, [settings, visible]);
 
@@ -37,6 +57,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTestStatus({ loading: true });
     const result = await aiService.testConnection(current);
     setTestStatus({ loading: false, success: result.success, message: result.message });
+  };
+
+  const handleTestVoice = (voiceName?: string, isTarget = false) => {
+    const chosen = voiceName && voiceName !== 'auto' ? voiceName : undefined;
+    const lang = isTarget ? current.defaultTargetLang : 'es';
+    const sample = isTarget ? 'Texto de prueba de traducción en Astro' : 'Texto de prueba de origen en Astro';
+    if (window.electronAPI) {
+      window.electronAPI.speakText(sample, lang, chosen);
+    } else if ('speechSynthesis' in window) {
+      const u = new SpeechSynthesisUtterance(sample);
+      u.lang = lang;
+      window.speechSynthesis.speak(u);
+    }
   };
 
   const handleSave = () => {
@@ -340,6 +373,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </View>
             </View>
 
+            {/* Voices Configuration (Text-to-Speech) */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionLabel, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Voces del Sistema (Text-to-Speech)
+              </Text>
+              <Text style={[styles.voiceSubdesc, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Si no se elige una voz específica, Astro ajustará automáticamente la voz correspondiente al idioma de origen y de destino.
+              </Text>
+
+              {/* Source Voice Card */}
+              <View style={[styles.voiceCard, isDark ? styles.voiceCardDark : styles.voiceCardLight]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.voiceCardTitle, isDark ? styles.textDark : styles.textLight]}>
+                    Voz de Origen (Texto original)
+                  </Text>
+                  <Text style={[styles.voiceCardValue, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                    {current.sourceVoice && current.sourceVoice !== 'auto'
+                      ? `🗣 ${current.sourceVoice}`
+                      : '✨ Automática (según idioma detectado)'}
+                  </Text>
+                </View>
+                <View style={styles.voiceActionsRow}>
+                  <TouchableOpacity
+                    onPress={() => handleTestVoice(current.sourceVoice, false)}
+                    style={[styles.voiceTestBtn, isDark ? styles.voiceBtnDark : styles.voiceBtnLight]}
+                    accessibilityLabel="Probar voz de origen"
+                  >
+                    <Text style={[styles.voiceBtnText, isDark ? styles.textDark : styles.textLight]}>🔊 Probar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setVoiceSearch('');
+                      setVoicePickerTarget('source');
+                    }}
+                    style={styles.voiceChangeBtn}
+                    accessibilityLabel="Cambiar voz de origen"
+                  >
+                    <Text style={styles.voiceChangeBtnText}>Cambiar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Target Voice Card */}
+              <View style={[styles.voiceCard, isDark ? styles.voiceCardDark : styles.voiceCardLight]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.voiceCardTitle, isDark ? styles.textDark : styles.textLight]}>
+                    Voz de Destino (Traducción)
+                  </Text>
+                  <Text style={[styles.voiceCardValue, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                    {current.targetVoice && current.targetVoice !== 'auto'
+                      ? `🗣 ${current.targetVoice}`
+                      : '✨ Automática (según idioma de destino)'}
+                  </Text>
+                </View>
+                <View style={styles.voiceActionsRow}>
+                  <TouchableOpacity
+                    onPress={() => handleTestVoice(current.targetVoice, true)}
+                    style={[styles.voiceTestBtn, isDark ? styles.voiceBtnDark : styles.voiceBtnLight]}
+                    accessibilityLabel="Probar voz de destino"
+                  >
+                    <Text style={[styles.voiceBtnText, isDark ? styles.textDark : styles.textLight]}>🔊 Probar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setVoiceSearch('');
+                      setVoicePickerTarget('target');
+                    }}
+                    style={styles.voiceChangeBtn}
+                    accessibilityLabel="Cambiar voz de destino"
+                  >
+                    <Text style={styles.voiceChangeBtnText}>Cambiar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
             {/* Shortcuts Reference */}
             <View style={styles.section}>
               <Text style={[styles.sectionLabel, isDark ? styles.textMutedDark : styles.textMutedLight]}>
@@ -393,6 +502,153 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </View>
         </View>
       </TouchableOpacity>
+
+      {/* Voice Selection Modal */}
+      {voicePickerTarget && (
+        <Modal
+          transparent
+          animationType="fade"
+          visible={true}
+          onRequestClose={() => setVoicePickerTarget(null)}
+        >
+          <TouchableOpacity
+            style={styles.voicePickerOverlay}
+            activeOpacity={1}
+            onPress={() => setVoicePickerTarget(null)}
+          >
+            <View
+              style={[
+                styles.voicePickerBox,
+                isDark ? styles.voicePickerBoxDark : styles.voicePickerBoxLight,
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={[styles.voicePickerHeader, isDark ? styles.borderDark : styles.borderLight]}>
+                <View>
+                  <Text style={[styles.voicePickerTitle, isDark ? styles.textDark : styles.textLight]}>
+                    {voicePickerTarget === 'source' ? 'Voz para Texto de Origen' : 'Voz para Texto de Destino'}
+                  </Text>
+                  <Text style={[styles.voicePickerSubtitle, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                    Selecciona una voz instalada o déjala en Automática
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setVoicePickerTarget(null)}>
+                  <Text style={styles.closeIcon}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Bar */}
+              <View style={styles.voiceSearchContainer}>
+                <TextInput
+                  value={voiceSearch}
+                  onChangeText={setVoiceSearch}
+                  placeholder="Buscar voz o idioma (ej. es, Paulina, en, Samantha)..."
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
+                />
+              </View>
+
+              <ScrollView style={styles.voiceList}>
+                {/* Auto Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.voiceItem,
+                    (voicePickerTarget === 'source' ? current.sourceVoice === 'auto' || !current.sourceVoice : current.targetVoice === 'auto' || !current.targetVoice) &&
+                      (isDark ? styles.voiceItemSelectedDark : styles.voiceItemSelectedLight),
+                  ]}
+                  onPress={() => {
+                    if (voicePickerTarget === 'source') {
+                      setCurrent({ ...current, sourceVoice: 'auto' });
+                    } else {
+                      setCurrent({ ...current, targetVoice: 'auto' });
+                    }
+                    setVoicePickerTarget(null);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.voiceItemName, isDark ? styles.textDark : styles.textLight]}>
+                      ✨ Automática (Predeterminada)
+                    </Text>
+                    <Text style={[styles.voiceItemDesc, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                      Ajusta la voz inteligentemente según el idioma en tiempo real
+                    </Text>
+                  </View>
+                  {(voicePickerTarget === 'source'
+                    ? current.sourceVoice === 'auto' || !current.sourceVoice
+                    : current.targetVoice === 'auto' || !current.targetVoice) && (
+                    <Text style={styles.voiceItemCheck}>✓</Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* Voice Items */}
+                {voices
+                  .filter((v) => {
+                    if (!voiceSearch.trim()) return true;
+                    const q = voiceSearch.toLowerCase();
+                    return (
+                      v.name.toLowerCase().includes(q) ||
+                      v.lang.toLowerCase().includes(q) ||
+                      (v.example && v.example.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((v) => {
+                    const isSelected =
+                      voicePickerTarget === 'source'
+                        ? current.sourceVoice === v.name
+                        : current.targetVoice === v.name;
+                    return (
+                      <TouchableOpacity
+                        key={v.name}
+                        style={[
+                          styles.voiceItem,
+                          isSelected && (isDark ? styles.voiceItemSelectedDark : styles.voiceItemSelectedLight),
+                        ]}
+                        onPress={() => {
+                          if (voicePickerTarget === 'source') {
+                            setCurrent({ ...current, sourceVoice: v.name });
+                          } else {
+                            setCurrent({ ...current, targetVoice: v.name });
+                          }
+                          setVoicePickerTarget(null);
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.voiceNameRow}>
+                            <Text style={[styles.voiceItemName, isDark ? styles.textDark : styles.textLight]}>
+                              {v.name}
+                            </Text>
+                            <Text style={styles.voiceLangBadge}>{v.lang}</Text>
+                          </View>
+                          {v.example && (
+                            <Text
+                              style={[styles.voiceItemExample, isDark ? styles.textMutedDark : styles.textMutedLight]}
+                              numberOfLines={1}
+                            >
+                              "{v.example}"
+                            </Text>
+                          )}
+                        </View>
+
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleTestVoice(v.name, voicePickerTarget === 'target');
+                          }}
+                          style={[styles.voicePreviewBtn, isDark ? styles.voiceBtnDark : styles.voiceBtnLight]}
+                          accessibilityLabel="Escuchar muestra"
+                        >
+                          <Text style={styles.voicePreviewIcon}>🔊</Text>
+                        </TouchableOpacity>
+
+                        {isSelected && <Text style={styles.voiceItemCheck}>✓</Text>}
+                      </TouchableOpacity>
+                    );
+                  })}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </Modal>
   );
 };
@@ -779,5 +1035,177 @@ const styles = StyleSheet.create({
   },
   textMutedLight: {
     color: '#64748b',
+  },
+  voiceSubdesc: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: 8,
+  },
+  voiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    gap: 8,
+  },
+  voiceCardDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  voiceCardLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  voiceCardTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  voiceCardValue: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  voiceActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  voiceTestBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  voiceBtnDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  voiceBtnLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  voiceBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  voiceChangeBtn: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  voiceChangeBtnText: {
+    fontSize: 11,
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  voicePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  voicePickerBox: {
+    width: 480,
+    maxHeight: 400,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  voicePickerBoxDark: {
+    backgroundColor: '#0f172a',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  voicePickerBoxLight: {
+    backgroundColor: '#ffffff',
+    borderColor: 'rgba(0, 0, 0, 0.12)',
+  },
+  voicePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  voicePickerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  voicePickerSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  voiceSearchContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  voiceList: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    maxHeight: 280,
+  },
+  voiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 4,
+    gap: 8,
+  },
+  voiceItemSelectedDark: {
+    backgroundColor: 'rgba(59, 130, 246, 0.22)',
+  },
+  voiceItemSelectedLight: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+  },
+  voiceNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  voiceItemName: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  voiceLangBadge: {
+    fontSize: 9,
+    fontFamily: 'monospace',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    color: '#3b82f6',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    fontWeight: 'bold',
+  },
+  voiceItemDesc: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  voiceItemExample: {
+    fontSize: 10,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  voicePreviewBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  voicePreviewIcon: {
+    fontSize: 12,
+  },
+  voiceItemCheck: {
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: 'bold',
   },
 });

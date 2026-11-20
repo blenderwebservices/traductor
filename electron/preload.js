@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),
+  setWindowPinned: (pinned) => ipcRenderer.send('set-window-pinned', pinned),
   
   // Selection and replacement
   autoReplaceText: (text) => ipcRenderer.send('auto-replace-text', text),
@@ -13,8 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   triggerScreenOCR: () => ipcRenderer.invoke('trigger-screen-ocr'),
   
   // Text-to-speech
-  speakText: (text, lang) => ipcRenderer.send('speak-text', { text, lang }),
+  speakText: (text, lang, voice) => ipcRenderer.send('speak-text', { text, lang, voice }),
   stopSpeaking: () => ipcRenderer.send('stop-speaking'),
+  getVoices: () => ipcRenderer.invoke('get-system-voices'),
   
   // System info & permissions
   checkAccessibility: () => ipcRenderer.invoke('check-accessibility'),

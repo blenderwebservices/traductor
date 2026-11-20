@@ -59,18 +59,29 @@ export interface AppSettings {
   isTargetPinned: boolean;
   selectedTone: Tone;
   autoSpeak: boolean;
+  sourceVoice?: string;
+  targetVoice?: string;
+  isWindowPinned?: boolean;
+}
+
+export interface VoiceOption {
+  name: string;
+  lang: string;
+  example?: string;
 }
 
 declare global {
   interface Window {
     electronAPI?: {
       hideWindow: () => void;
+      setWindowPinned: (pinned: boolean) => void;
       autoReplaceText: (text: string) => void;
       getClipboardText: () => Promise<string>;
       copyToClipboard: (text: string) => void;
       triggerScreenOCR: () => Promise<{ success: boolean; text?: string; error?: string }>;
-      speakText: (text: string, lang: string) => void;
+      speakText: (text: string, lang: string, voice?: string) => void;
       stopSpeaking: () => void;
+      getVoices: () => Promise<VoiceOption[]>;
       checkAccessibility: () => Promise<boolean>;
       openAccessibilityPreferences: () => void;
       onShowWithText: (callback: (data: { text: string; isDarkMode: boolean }) => void) => () => void;

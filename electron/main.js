@@ -11,6 +11,7 @@ let mainWindow = null;
 let tray = null;
 let cmdTapProcess = null;
 let lastKnownSelection = '';
+let isWindowPinned = false;
 
 // Check if accessibility permissions are granted
 function isAccessibilityGranted(prompt = false) {
@@ -47,8 +48,9 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
   }
 
-  // Hide on blur (Ephemeral window behavior)
+  // Hide on blur (Ephemeral window behavior unless pinned with chincheta)
   mainWindow.on('blur', () => {
+    if (isWindowPinned) return;
     if (!mainWindow.webContents.isDevToolsOpened()) {
       mainWindow.hide();
     }
@@ -244,24 +246,64 @@ function autoReplaceText(text) {
 }
 
 // Native Text-to-Speech
-function speakText(text, lang = 'es') {
+function speakText(text, lang = 'es', voice = null) {
   if (!text) return;
-  let voice = 'Samantha';
-  if (lang.startsWith('es')) {
-    voice = 'Jorge';
-  } else if (lang.startsWith('fr')) {
-    voice = 'Thomas';
-  } else if (lang.startsWith('de')) {
-    voice = 'Anna';
-  } else if (lang.startsWith('it')) {
-    voice = 'Alice';
-  } else if (lang.startsWith('pt')) {
-    voice = 'Luciana';
+  let chosenVoice = voice && voice !== 'auto' ? voice : null;
+  if (!chosenVoice) {
+    if (lang.startsWith('es')) {
+      chosenVoice = 'Paulina';
+    } else if (lang.startsWith('en')) {
+      chosenVoice = 'Samantha';
+    } else if (lang.startsWith('fr')) {
+      chosenVoice = 'Thomas';
+    } else if (lang.startsWith('de')) {
+      chosenVoice = 'Anna';
+    } else if (lang.startsWith('it')) {
+      chosenVoice = 'Alice';
+    } else if (lang.startsWith('pt')) {
+      chosenVoice = 'Luciana';
+    } else if (lang.startsWith('zh')) {
+      chosenVoice = 'Ting-Ting';
+    } else if (lang.startsWith('ja')) {
+      chosenVoice = 'Kyoko';
+    } else if (lang.startsWith('ru')) {
+      chosenVoice = 'Milena';
+    } else {
+      chosenVoice = 'Samantha';
+    }
   }
 
   const escapedText = text.replace(/"/g, '\\"');
-  exec(`say -v "${voice}" "${escapedText}" || say "${escapedText}"`, (err) => {
+  exec(`say -v "${chosenVoice}" "${escapedText}" || say "${escapedText}"`, (err) => {
     if (err) console.error('TTS error:', err);
+  });
+}
+
+function getSystemVoices() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'darwin') {
+      resolve([]);
+      return;
+    }
+    exec("say -v '?'", { timeout: 3000 }, (err, stdout) => {
+      if (err || !stdout) {
+        resolve([]);
+        return;
+      }
+      const lines = stdout.split('\n');
+      const voices = [];
+      for (const line of lines) {
+        const match = line.match(/^([^\s].*?)\s+([a-z]{2}_[A-Z]{2})\s+#\s*(.*)$/);
+        if (match) {
+          voices.push({
+            name: match[1].trim(),
+            lang: match[2].trim(),
+            example: match[3].trim(),
+          });
+        }
+      }
+      resolve(voices);
+    });
   });
 }
 
@@ -333,8 +375,19 @@ ipcMain.handle('trigger-screen-ocr', async () => {
   return await triggerScreenOCR();
 });
 
-ipcMain.on('speak-text', (_event, { text, lang }) => {
-  speakText(text, lang);
+ipcMain.on('speak-text', (_event, { text, lang, voice }) => {
+  speakText(text, lang, voice);
+});
+
+ipcMain.handle('get-system-voices', async () => {
+  return await getSystemVoices();
+});
+
+ipcMain.on('set-window-pinned', (_event, pinned) => {
+  isWindowPinned = !!pinned;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setAlwaysOnTop(true, 'floating');
+  }
 });
 
 ipcMain.on('stop-speaking', () => {

@@ -14,3 +14,17 @@ Para cualquier trabajo, desarrollo o sesión en este proyecto:
 
 3. **Notas y Scratchpads (si aplica)**:
    - Cualquier archivo de checklist o scratchpad relevante debe resguardarse en `docs/` siguiendo el mismo formato de timestamp: `docs/YYYY-MM-DD_HH-mm_scratchpad.md`.
+
+4. **Nomenclatura de Versión del DMG**:
+   - Cada nuevo paquete `.dmg` debe nombrarse estrictamente en el formato:
+     `Citas-1.0.[año YYYY].[mes MM].[dia DD].[Hora HHMM].dmg`
+     (Ejemplo: `Citas-1.0.2026.11.20.0955.dmg`).
+   - El script `scripts/build-dmg.sh` calcula automáticamente esta fecha y hora al momento de la compilación.
+
+---
+
+## Expo / React Native
+
+- `npx expo install <package>` para instalar dependencias compatibles con el SDK de Expo.
+- `npx tsc --noEmit` para verificar tipos TypeScript.
+- `npx expo start` para iniciar el servidor de desarrollo.

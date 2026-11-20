@@ -14,6 +14,9 @@ export const defaultSettings: AppSettings = {
   isTargetPinned: false,
   selectedTone: 'standard',
   autoSpeak: false,
+  sourceVoice: 'auto',
+  targetVoice: 'auto',
+  isWindowPinned: false,
 };
 
 export const storageService = {
