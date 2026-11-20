@@ -1,4 +1,4 @@
-# Reglas de Trabajo 
+# Reglas de Trabajo
 
 ## Registro de Documentación y Planes
 
@@ -17,8 +17,8 @@ Para cualquier trabajo, desarrollo o sesión en este proyecto:
 
 4. **Nomenclatura de Versión del DMG**:
    - Cada nuevo paquete `.dmg` debe nombrarse estrictamente en el formato:
-     `Citas-1.0.[año YYYY].[mes MM].[dia DD].[Hora HHMM].dmg`
-     (Ejemplo: `Citas-1.0.2026.11.20.0955.dmg`).
+     `[proyecto]-1.0.[año YYYY].[mes MM].[dia DD].[Hora HHMM].dmg`
+     (Ejemplo: `Proyecto-1.0.2026.11.20.0955.dmg`).
    - El script `scripts/build-dmg.sh` calcula automáticamente esta fecha y hora al momento de la compilación.
 
 ---

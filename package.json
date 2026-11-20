@@ -11,7 +11,8 @@
     "build": "npm run build:native && npm run build:ui",
     "start": "npm run build:ui && node electron/start.js",
     "dev": "npm run build:ui && node electron/start.js",
-    "dist:dmg": "npm run build && electron-builder --mac dmg",
+    "build:dmg": "bash scripts/build-dmg.sh",
+    "dist:dmg": "bash scripts/build-dmg.sh",
     "dist:dir": "npm run build && electron-builder --mac dir",
     "dist": "npm run build && electron-builder --mac"
   },
