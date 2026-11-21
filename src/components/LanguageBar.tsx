@@ -7,14 +7,16 @@ interface LanguageBarProps {
   sourceLang: LanguageCode;
   targetLang: LanguageCode;
   detectedLang?: LanguageCode;
-  isPinned: boolean;
+  isTargetPinned: boolean;
+  isWindowPinned: boolean;
   isDark: boolean;
   isTranslating?: boolean;
   providerLabel?: string;
   onSelectSource: (lang: LanguageCode) => void;
   onSelectTarget: (lang: LanguageCode) => void;
   onSwapLanguages: () => void;
-  onTogglePin: () => void;
+  onToggleTargetPin: () => void;
+  onToggleWindowPin: () => void;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
 }
@@ -23,14 +25,16 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
   sourceLang,
   targetLang,
   detectedLang,
-  isPinned,
+  isTargetPinned,
+  isWindowPinned,
   isDark,
   isTranslating = false,
   providerLabel,
   onSelectSource,
   onSelectTarget,
   onSwapLanguages,
-  onTogglePin,
+  onToggleTargetPin,
+  onToggleWindowPin,
   onOpenSettings,
   onOpenHistory,
 }) => {
@@ -95,20 +99,45 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
           <Text style={styles.chevron}>▾</Text>
         </TouchableOpacity>
 
-        {/* Pin Window Button (Chincheta) */}
+        {/* Target Language Pin Button (Fijar idioma destino) */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={onTogglePin}
+          onPress={onToggleTargetPin}
           style={[
             styles.iconButton,
             styles.noDrag,
-            isPinned && styles.pinActive,
+            isTargetPinned && styles.pinActive,
             isDark ? styles.iconButtonDark : styles.iconButtonLight,
           ]}
-          accessibilityLabel={isPinned ? 'Ventana fijada: no se cierra al hacer clic afuera' : 'Fijar ventana en pantalla'}
+          accessibilityLabel={
+            isTargetPinned
+              ? 'Idioma de destino fijado: no cambia automáticamente'
+              : 'Fijar idioma de destino (evitar cambio automático es ↔ en)'
+          }
         >
-          <Text style={[styles.pinIcon, isPinned && styles.pinIconActive]}>
-            {isPinned ? '📌' : '📍'}
+          <Text style={[styles.pinIcon, isTargetPinned && styles.pinIconActive]}>
+            {isTargetPinned ? '🔒' : '🔓'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Pin Window Button (Chincheta: mantener ventana visible) */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={onToggleWindowPin}
+          style={[
+            styles.iconButton,
+            styles.noDrag,
+            isWindowPinned && styles.pinActive,
+            isDark ? styles.iconButtonDark : styles.iconButtonLight,
+          ]}
+          accessibilityLabel={
+            isWindowPinned
+              ? 'Ventana fijada: no se oculta al hacer clic fuera'
+              : 'Fijar ventana (impedir que desaparezca al hacer clic fuera)'
+          }
+        >
+          <Text style={[styles.pinIcon, isWindowPinned && styles.pinIconActive]}>
+            {isWindowPinned ? '📌' : '📍'}
           </Text>
         </TouchableOpacity>
       </View>

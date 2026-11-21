@@ -30,6 +30,7 @@ export interface TranslationResponse {
   dictionaryEntry?: DictionaryEntry;
   isProofreading?: boolean;
   proofreadingExplanation?: string;
+  isOfflineFallback?: boolean;
 }
 
 export interface HistoryItem {
@@ -62,6 +63,7 @@ export interface AppSettings {
   sourceVoice?: string;
   targetVoice?: string;
   isWindowPinned?: boolean;
+  hasCompletedOnboarding?: boolean;
 }
 
 export interface VoiceOption {

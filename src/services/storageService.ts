@@ -17,6 +17,7 @@ export const defaultSettings: AppSettings = {
   sourceVoice: 'auto',
   targetVoice: 'auto',
   isWindowPinned: false,
+  hasCompletedOnboarding: false,
 };
 
 export const storageService = {

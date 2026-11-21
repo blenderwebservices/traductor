@@ -45,17 +45,38 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
+  // CRO / UX state
+  const [hasAccessibility, setHasAccessibility] = useState<boolean>(true);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [speakingTarget, setSpeakingTarget] = useState<'source' | 'target' | null>(null);
+  const [isOfflineFallback, setIsOfflineFallback] = useState<boolean>(false);
+
   const textInputRef = useRef<any>(null);
   const debounceTimerRef = useRef<any>(null);
+  const speakTimerRef = useRef<any>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Initialize target language from settings
+  const isUniversalEngine =
+    settings.provider === 'local' ||
+    (settings.provider === 'gemini' && !settings.geminiApiKey?.trim()) ||
+    (settings.provider === 'openai' && !settings.openaiApiKey?.trim());
+
+  const refreshAccessibility = useCallback(() => {
+    if (window.electronAPI) {
+      window.electronAPI.checkAccessibility().then((trusted) => {
+        setHasAccessibility(trusted);
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Initialize target language from settings & check accessibility
   useEffect(() => {
     setTargetLang(settings.defaultTargetLang);
     setTone(settings.selectedTone);
     if (window.electronAPI) {
       window.electronAPI.setWindowPinned(!!settings.isWindowPinned);
     }
+    refreshAccessibility();
   }, []);
 
   // Main translation function
@@ -99,6 +120,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         });
 
         setTranslatedText(result.translatedText);
+        setIsOfflineFallback(!!result.isOfflineFallback);
         if (result.isDictionary && result.dictionaryEntry) {
           setDictionaryEntry(result.dictionaryEntry);
         }
@@ -195,21 +217,47 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
 
   // OCR screen capture trigger
   const handleOCR = async () => {
+    setOcrError(null);
     if (window.electronAPI) {
       const res = await window.electronAPI.triggerScreenOCR();
       if (res.success && res.text) {
         setSourceText(res.text);
         executeTranslation(res.text);
+      } else if (res.error && res.error !== 'Captura cancelada') {
+        setOcrError(res.error);
+        setTimeout(() => setOcrError(null), 4500);
       }
     }
   };
 
-  // Text-to-Speech
-  const handleSpeak = (text: string, lang: string, voice?: string) => {
+  // Text-to-Speech (Toggle Escuchar / Detener)
+  const handleStopSpeaking = useCallback(() => {
+    if (speakTimerRef.current) {
+      clearTimeout(speakTimerRef.current);
+      speakTimerRef.current = null;
+    }
+    if (window.electronAPI) {
+      window.electronAPI.stopSpeaking();
+    } else if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingTarget(null);
+  }, []);
+
+  const handleSpeak = (text: string, lang: string, voice: string | undefined, which: 'source' | 'target') => {
     if (!text) return;
+    if (speakingTarget === which) {
+      handleStopSpeaking();
+      return;
+    }
+    handleStopSpeaking();
+    setSpeakingTarget(which);
+
     const chosenVoice = voice && voice !== 'auto' ? voice : undefined;
     if (window.electronAPI) {
       window.electronAPI.speakText(text, lang, chosenVoice);
+      const estimatedMs = Math.min(30000, Math.max(1800, text.length * 75));
+      speakTimerRef.current = setTimeout(() => setSpeakingTarget(null), estimatedMs);
     } else if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
@@ -218,6 +266,8 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         const found = vList.find((v) => v.name === chosenVoice);
         if (found) utterance.voice = found;
       }
+      utterance.onend = () => setSpeakingTarget(null);
+      utterance.onerror = () => setSpeakingTarget(null);
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -234,7 +284,14 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
     }
   };
 
-  const handleTogglePin = () => {
+  const handleToggleTargetPin = () => {
+    const nextPinned = !settings.isTargetPinned;
+    const updated = { ...settings, isTargetPinned: nextPinned };
+    setSettings(updated);
+    storageService.saveSettings(updated);
+  };
+
+  const handleToggleWindowPin = () => {
     const nextPinned = !settings.isWindowPinned;
     const updated = { ...settings, isWindowPinned: nextPinned };
     setSettings(updated);
@@ -242,6 +299,12 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
     if (window.electronAPI) {
       window.electronAPI.setWindowPinned(nextPinned);
     }
+  };
+
+  const handleDismissOnboarding = () => {
+    const updated = { ...settings, hasCompletedOnboarding: true };
+    setSettings(updated);
+    storageService.saveSettings(updated);
   };
 
   const handleSelectTone = (newTone: Tone) => {
@@ -258,7 +321,8 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         sourceLang={sourceLang}
         targetLang={targetLang}
         detectedLang={detectedLang}
-        isPinned={!!settings.isWindowPinned}
+        isTargetPinned={!!settings.isTargetPinned}
+        isWindowPinned={!!settings.isWindowPinned}
         isDark={isDark}
         isTranslating={isTranslating}
         providerLabel={settings.provider === 'gemini' ? (settings.geminiModel || 'gemini-3.8-flash') : settings.provider.toUpperCase()}
@@ -271,16 +335,81 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
           if (sourceText) executeTranslation(sourceText, sourceLang, lang, tone);
         }}
         onSwapLanguages={handleSwapLanguages}
-        onTogglePin={handleTogglePin}
+        onToggleTargetPin={handleToggleTargetPin}
+        onToggleWindowPin={handleToggleWindowPin}
         onOpenSettings={() => setShowSettings(true)}
         onOpenHistory={() => setShowHistory(true)}
       />
 
       {/* Tone Picker Bar */}
-      <TonePicker selectedTone={tone} onSelectTone={handleSelectTone} isDark={isDark} />
+      <TonePicker
+        selectedTone={tone}
+        onSelectTone={handleSelectTone}
+        isDark={isDark}
+        isUniversalEngine={isUniversalEngine}
+        onOpenSettings={() => setShowSettings(true)}
+      />
 
       {/* Content Area */}
-      <ScrollView style={styles.scrollArea} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* First-Run Onboarding Card */}
+        {!settings.hasCompletedOnboarding && (
+          <View style={[styles.croBanner, isDark ? styles.onboardingDark : styles.onboardingLight]}>
+            <View style={styles.croBannerContent}>
+              <Text style={[styles.croBannerTitle, isDark ? styles.textDark : styles.textLight]}>
+                👋 Bienvenido a Astro Traductor
+              </Text>
+              <Text style={[styles.croBannerDesc, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Usa <Text style={styles.kbd}>Cmd+Cmd</Text> para invocar desde cualquier app, <Text style={styles.kbd}>Cmd+Enter</Text> para reemplazar texto y <Text style={styles.kbd}>Cmd+Alt+O</Text> para OCR.
+              </Text>
+            </View>
+            <TouchableOpacity onPress={handleDismissOnboarding} style={styles.croPrimaryBtn}>
+              <Text style={styles.croPrimaryBtnText}>Entendido</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Inline Accessibility Warning Banner */}
+        {!hasAccessibility && (
+          <View style={[styles.croBanner, styles.accessBanner]}>
+            <View style={styles.croBannerContent}>
+              <Text style={[styles.croBannerTitle, styles.accessBannerTitle]}>
+                ⚠️ Faltan permisos de Accesibilidad
+              </Text>
+              <Text style={[styles.croBannerDesc, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Necesarios para Cmd+Cmd, lectura automática y reemplazo en línea.
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity
+                onPress={() => window.electronAPI?.openAccessibilityPreferences()}
+                style={styles.accessActionBtn}
+              >
+                <Text style={styles.croPrimaryBtnText}>Activar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={refreshAccessibility}
+                style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
+              >
+                <Text style={[styles.miniButtonIcon, isDark ? styles.textDark : styles.textLight]}>↻</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* OCR Error Feedback */}
+        {ocrError && (
+          <View style={[styles.croBanner, styles.errorBanner]}>
+            <Text style={styles.errorBannerText}>📷 OCR: {ocrError}</Text>
+            <TouchableOpacity onPress={() => setOcrError(null)}>
+              <Text style={styles.errorBannerText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Source Text Input Box */}
         <View style={[styles.inputBox, isDark ? styles.boxDark : styles.boxLight]}>
           <TextInput
@@ -307,11 +436,13 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
 
               {sourceText.trim().length > 0 && (
                 <TouchableOpacity
-                  onPress={() => handleSpeak(sourceText, detectedLang || sourceLang, settings.sourceVoice)}
+                  onPress={() => handleSpeak(sourceText, detectedLang || sourceLang, settings.sourceVoice, 'source')}
                   style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
-                  accessibilityLabel="Pronunciar texto original"
+                  accessibilityLabel={speakingTarget === 'source' ? 'Detener pronunciación' : 'Pronunciar texto original'}
                 >
-                  <Text style={styles.miniButtonIcon}>🔊</Text>
+                  <Text style={styles.miniButtonIcon}>
+                    {speakingTarget === 'source' ? '⏹ Detener' : '🔊'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -377,11 +508,13 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
             <View style={styles.outputActionRow}>
               <View style={styles.leftActions}>
                 <TouchableOpacity
-                  onPress={() => handleSpeak(translatedText, targetLang, settings.targetVoice)}
+                  onPress={() => handleSpeak(translatedText, targetLang, settings.targetVoice, 'target')}
                   style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
-                  accessibilityLabel="Pronunciar traducción"
+                  accessibilityLabel={speakingTarget === 'target' ? 'Detener pronunciación' : 'Pronunciar traducción'}
                 >
-                  <Text style={styles.miniButtonIcon}>🔊 Escuchar</Text>
+                  <Text style={styles.miniButtonIcon}>
+                    {speakingTarget === 'target' ? '⏹ Detener' : '🔊 Escuchar'}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -436,10 +569,12 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
           style={styles.engineBadgeContainer}
           accessibilityLabel="Ajustes de IA"
         >
-          <View style={[styles.engineDot, isTranslating ? styles.engineDotBusy : styles.engineDotReady]} />
+          <View style={[styles.engineDot, isTranslating ? styles.engineDotBusy : isOfflineFallback ? styles.engineDotOffline : styles.engineDotReady]} />
           <Text style={[styles.engineBadge, isDark ? styles.textMutedDark : styles.textMutedLight]}>
             {isTranslating
               ? '⚡ IA Procesando...'
+              : isOfflineFallback && isUniversalEngine
+              ? '🟠 Modo Offline • Local'
               : `🟢 IA Activa • ${settings.provider === 'gemini' ? (settings.geminiModel || 'gemini-3.8-flash') : settings.provider === 'openai' ? (settings.openaiModel || 'gpt-4o-mini') : 'Universal'}`}
           </Text>
         </TouchableOpacity>
@@ -450,7 +585,10 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         visible={showSettings}
         settings={settings}
         isDark={isDark}
-        onClose={() => setShowSettings(false)}
+        onClose={() => {
+          setShowSettings(false);
+          refreshAccessibility();
+        }}
         onSaveSettings={(newSettings) => {
           setSettings(newSettings);
           storageService.saveSettings(newSettings);
@@ -491,6 +629,9 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
 const styles = StyleSheet.create({
   windowContainer: {
     flex: 1,
+    height: '100%' as any,
+    maxHeight: '100%' as any,
+    minHeight: 0,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
@@ -510,8 +651,14 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     flex: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    minHeight: 0,
     paddingHorizontal: 14,
     paddingVertical: 8,
+  },
+  scrollContent: {
+    paddingBottom: 6,
   },
   inputBox: {
     borderRadius: 10,
@@ -692,6 +839,73 @@ const styles = StyleSheet.create({
   },
   engineDotBusy: {
     backgroundColor: '#f59e0b',
+  },
+  engineDotOffline: {
+    backgroundColor: '#f97316',
+  },
+  croBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 8,
+    gap: 8,
+    borderWidth: 1,
+  },
+  croBannerContent: {
+    flex: 1,
+    gap: 2,
+  },
+  croBannerTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  croBannerDesc: {
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  onboardingDark: {
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  onboardingLight: {
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderColor: 'rgba(59, 130, 246, 0.25)',
+  },
+  croPrimaryBtn: {
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  croPrimaryBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  accessBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+  },
+  accessBannerTitle: {
+    color: '#f59e0b',
+  },
+  accessActionBtn: {
+    backgroundColor: '#f59e0b',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  errorBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  errorBannerText: {
+    fontSize: 11,
+    color: '#ef4444',
+    fontWeight: '600',
   },
   engineBadge: {
     fontSize: 10,

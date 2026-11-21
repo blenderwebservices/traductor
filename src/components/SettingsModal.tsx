@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { AIProvider, AppSettings, LanguageCode, VoiceOption } from '../types';
 import { LANGUAGES, aiService } from '../services/aiService';
 
@@ -237,6 +237,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   secureTextEntry
                   style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
                 />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b' }}>
+                    🔒 Se guarda localmente en tu Mac.
+                  </Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://aistudio.google.com/apikey')}>
+                    <Text style={{ fontSize: 11, color: '#3b82f6', fontWeight: '600' }}>
+                      Obtener API Key gratis en Google AI Studio ↗
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 
@@ -289,6 +299,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   secureTextEntry
                   style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
                 />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                  <Text style={{ fontSize: 10, color: isDark ? '#94a3b8' : '#64748b' }}>
+                    🔒 Se guarda localmente en tu Mac.
+                  </Text>
+                  <TouchableOpacity onPress={() => Linking.openURL('https://platform.openai.com/api-keys')}>
+                    <Text style={{ fontSize: 11, color: '#3b82f6', fontWeight: '600' }}>
+                      Obtener API Key en OpenAI Platform ↗
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
 

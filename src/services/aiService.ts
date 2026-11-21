@@ -311,7 +311,9 @@ export class AIService {
     }
 
     // Fallback if network failed
+    let isOfflineFallback = false;
     if (!translated) {
+      isOfflineFallback = true;
       translated = this.localFallbackTranslate(text, detected, targetLang);
       if (isSingleWord) {
         dictData = {
@@ -339,6 +341,7 @@ export class AIService {
       translatedText: translated,
       isDictionary: isSingleWord,
       dictionaryEntry: dictData,
+      isOfflineFallback,
     };
   }
 

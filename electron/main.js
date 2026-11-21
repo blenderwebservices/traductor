@@ -408,6 +408,9 @@ app.whenReady().then(() => {
   startDoubleCmdListener();
   createTray();
   isAccessibilityGranted(false);
+  mainWindow.once('ready-to-show', () => {
+    showModal('');
+  });
 });
 
 app.on('will-quit', () => {
