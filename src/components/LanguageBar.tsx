@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal } from 'react-native';
 import { LanguageCode } from '../types';
 import { LANGUAGES } from '../services/aiService';
 
@@ -183,11 +183,11 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
           visible={true}
           onRequestClose={() => setPickerMode(null)}
         >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setPickerMode(null)}
-          >
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setPickerMode(null)}
+            />
             <View
               style={[
                 styles.dropdownContainer,
@@ -237,7 +237,7 @@ export const LanguageBar: React.FC<LanguageBarProps> = ({
                 )}
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       )}
     </View>
@@ -404,6 +404,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 8,
+    zIndex: 10,
   },
   dropdownDark: {
     backgroundColor: '#1e293b',

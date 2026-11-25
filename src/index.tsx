@@ -7,6 +7,7 @@ AppRegistry.registerComponent('AstroTranslator', () => App);
 const rootTag = document.getElementById('root');
 if (rootTag) {
   AppRegistry.runApplication('AstroTranslator', {
-    rootTag,
+    initialProps: {},
+    rootTag: rootTag as any,
   });
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Modal, ScrollView, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, TextInput, StyleSheet, Modal, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { AIProvider, AppSettings, LanguageCode, VoiceOption } from '../types';
 import { LANGUAGES, aiService } from '../services/aiService';
 
@@ -98,7 +98,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[styles.modalBox, isDark ? styles.modalDark : styles.modalLight]}
           onStartShouldSetResponder={() => true}
@@ -521,7 +522,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
 
       {/* Voice Selection Modal */}
       {voicePickerTarget && (
@@ -531,11 +532,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           visible={true}
           onRequestClose={() => setVoicePickerTarget(null)}
         >
-          <TouchableOpacity
-            style={styles.voicePickerOverlay}
-            activeOpacity={1}
-            onPress={() => setVoicePickerTarget(null)}
-          >
+          <View style={styles.voicePickerOverlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setVoicePickerTarget(null)}
+            />
             <View
               style={[
                 styles.voicePickerBox,
@@ -562,6 +563,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <TextInput
                   value={voiceSearch}
                   onChangeText={setVoiceSearch}
+                  autoFocus={true}
                   placeholder="Buscar voz o idioma (ej. es, Paulina, en, Samantha)..."
                   placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   style={[styles.input, isDark ? styles.inputDark : styles.inputLight]}
@@ -666,7 +668,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   })}
               </ScrollView>
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       )}
     </Modal>
@@ -690,6 +692,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
+    zIndex: 10,
     overflow: 'hidden',
   },
   modalDark: {
@@ -1138,6 +1141,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 24,
     elevation: 12,
+    zIndex: 10,
   },
   voicePickerBoxDark: {
     backgroundColor: '#0f172a',

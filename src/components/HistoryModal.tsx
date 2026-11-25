@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Modal, ScrollView } from 'react-native';
 import { HistoryItem } from '../types';
 
 interface HistoryModalProps {
@@ -32,7 +32,8 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View
           style={[styles.modalBox, isDark ? styles.modalDark : styles.modalLight]}
           // Prevent click propagation inside box
@@ -152,7 +153,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 };
