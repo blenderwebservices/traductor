@@ -56,6 +56,13 @@ function createWindow() {
     }
   });
 
+  // Notify renderer on focus to check clipboard and place cursor at end
+  mainWindow.on('focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('window-focus');
+    }
+  });
+
   // Notify renderer on system theme change
   nativeTheme.on('updated', () => {
     if (mainWindow && !mainWindow.isDestroyed()) {

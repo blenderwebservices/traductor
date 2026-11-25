@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('show-with-text', handler);
     return () => ipcRenderer.removeListener('show-with-text', handler);
   },
+  onWindowFocus: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('window-focus', handler);
+    return () => ipcRenderer.removeListener('window-focus', handler);
+  },
   onThemeChanged: (callback) => {
     const handler = (_event, theme) => callback(theme);
     ipcRenderer.on('theme-changed', handler);

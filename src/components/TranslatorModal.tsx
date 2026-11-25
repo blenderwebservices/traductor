@@ -54,6 +54,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   const textInputRef = useRef<any>(null);
   const debounceTimerRef = useRef<any>(null);
   const speakTimerRef = useRef<any>(null);
+  const lastCopiedByAstroRef = useRef<string>('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const isUniversalEngine =
@@ -161,6 +162,87 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
     }, 250);
   };
 
+  // Helper to place cursor at the end of text input in editable mode
+  const placeCursorAtEnd = useCallback((text: string) => {
+    setTimeout(() => {
+      const target = textInputRef.current;
+      if (!target) return;
+      const el = target.setSelectionRange
+        ? target
+        : target.node && target.node.setSelectionRange
+        ? target.node
+        : typeof target.getNativeRef === 'function' && target.getNativeRef()?.setSelectionRange
+        ? target.getNativeRef()
+        : target;
+
+      if (typeof el.focus === 'function') {
+        el.focus();
+      }
+      const len = typeof text === 'string' ? text.length : 0;
+      if (typeof el.setSelectionRange === 'function') {
+        el.setSelectionRange(len, len);
+      } else if (typeof el.setSelection === 'function') {
+        el.setSelection(len, len);
+      }
+      if (el.scrollHeight) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 60);
+  }, []);
+
+  // Check clipboard on window focus and update sourceText if text is available
+  const checkClipboardOnFocus = useCallback(async () => {
+    try {
+      let clipboardText = '';
+      if (window.electronAPI?.getClipboardText) {
+        clipboardText = await window.electronAPI.getClipboardText();
+      } else if (navigator.clipboard?.readText) {
+        clipboardText = await navigator.clipboard.readText();
+      }
+
+      if (typeof clipboardText === 'string') {
+        const trimmed = clipboardText.trim();
+        if (trimmed.length > 0) {
+          // Avoid replacing if it's identical to what Astro itself copied to clipboard
+          if (trimmed === lastCopiedByAstroRef.current.trim()) {
+            return;
+          }
+
+          // If new or different, update source text and translate
+          if (trimmed !== sourceText.trim()) {
+            setSourceText(clipboardText);
+            executeTranslation(clipboardText);
+          }
+
+          // In editable mode, set focus and move cursor to the very end
+          placeCursorAtEnd(clipboardText);
+        } else if (sourceText) {
+          placeCursorAtEnd(sourceText);
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading clipboard on focus:', e);
+    }
+  }, [sourceText, executeTranslation, placeCursorAtEnd]);
+
+  // Listen to focus events (Electron IPC + Window DOM focus)
+  useEffect(() => {
+    const onFocus = () => {
+      checkClipboardOnFocus();
+    };
+
+    window.addEventListener('focus', onFocus);
+    let unsubIpc: (() => void) | undefined;
+    if (window.electronAPI?.onWindowFocus) {
+      unsubIpc = window.electronAPI.onWindowFocus(onFocus);
+    }
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (unsubIpc) unsubIpc();
+    };
+  }, [checkClipboardOnFocus]);
+
   // Listen to Electron events (such as invocation with clipboard/selected text)
   useEffect(() => {
     if (window.electronAPI) {
@@ -168,14 +250,14 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         if (data.text) {
           setSourceText(data.text);
           executeTranslation(data.text);
+          placeCursorAtEnd(data.text);
+        } else {
+          checkClipboardOnFocus();
         }
-        setTimeout(() => {
-          textInputRef.current?.focus();
-        }, 50);
       });
       return unsubscribe;
     }
-  }, [executeTranslation]);
+  }, [executeTranslation, placeCursorAtEnd, checkClipboardOnFocus]);
 
   // Global keydown handler for Esc, Cmd+Enter, Cmd+Alt+O inside the window
   useEffect(() => {
@@ -196,6 +278,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   // Auto replace in background app
   const handleAutoReplace = () => {
     if (!translatedText) return;
+    lastCopiedByAstroRef.current = translatedText;
     if (window.electronAPI) {
       window.electronAPI.autoReplaceText(translatedText);
     } else {
@@ -206,6 +289,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   // Copy to clipboard
   const handleCopy = () => {
     if (!translatedText) return;
+    lastCopiedByAstroRef.current = translatedText;
     if (window.electronAPI) {
       window.electronAPI.copyToClipboard(translatedText);
     } else {
@@ -223,6 +307,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
       if (res.success && res.text) {
         setSourceText(res.text);
         executeTranslation(res.text);
+        placeCursorAtEnd(res.text);
       } else if (res.error && res.error !== 'Captura cancelada') {
         setOcrError(res.error);
         setTimeout(() => setOcrError(null), 4500);
