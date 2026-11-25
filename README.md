@@ -147,3 +147,58 @@ traductor/
         ├── HistoryModal.tsx    # Modal de historial y favoritos
         └── SettingsModal.tsx   # Modal de configuración y accesibilidad
 ```
+
+---
+
+## 🏗️ Arquitectura de la Aplicación
+
+Astro sigue una **arquitectura híbrida en 4 capas** que combina una interfaz declarativa en React Native Web con un proceso principal de Electron y binarios nativos compilados en Swift para integración profunda con macOS.
+
+```mermaid
+flowchart TB
+    subgraph UI["1. Capa de Presentación (React Native Web + Vite)"]
+        App["App.tsx"] --> Modal["TranslatorModal.tsx"]
+        Modal --> Bar["LanguageBar.tsx / TonePicker.tsx"]
+        Modal --> Cards["DictionaryCard.tsx / ProofreadingCard.tsx"]
+        Modal --> SubModals["SettingsModal.tsx / HistoryModal.tsx"]
+    end
+
+    subgraph Services["2. Capa de Servicios (Frontend)"]
+        AI["aiService.ts\n(Universal Neural Engine, Gemini, OpenAI)"]
+        Storage["storageService.ts\n(localStorage: ajustes, historial, favoritos)"]
+    end
+
+    subgraph Bridge["3. Capa de Puente y Orquestación (Electron)"]
+        Preload["preload.js\n(contextBridge -> window.electronAPI)"]
+        Main["main.js\n(BrowserWindow, Tray, Atajos, IPC, say, osascript)"]
+    end
+
+    subgraph Native["4. Capa Nativa macOS (Swift + Frameworks Apple)"]
+        CmdTap["cmd-tap-listener\n(NSEvent doble Cmd)"]
+        OCR["ocr-helper\n(Vision.framework)"]
+        System["macOS TCC / Accesibilidad / say / screencapture"]
+    end
+
+    Modal --> AI
+    Modal --> Storage
+    Modal <--> Preload
+    Preload <--> Main
+    Main <--> CmdTap
+    Main <--> OCR
+    Main <--> System
+```
+
+### Descripción de Capas
+
+1. **Capa de Presentación (`src/components/`, `src/App.tsx`):**
+   Interfaz construida con `react-native-web` y empaquetada con Vite. Renderiza el modal flotante estilo Spotlight/Raycast (`TranslatorModal`), los controles de idioma y pines independientes (`LanguageBar`: pin de idioma destino e inmovilización de ventana), selector de tono (`TonePicker`) y tarjetas contextuales (`DictionaryCard`, `ProofreadingCard`).
+2. **Capa de Servicios (`src/services/`):**
+   - `aiService.ts`: Enruta las peticiones hacia el **Motor Neuronal Universal** por defecto (sin API Key, vía `translate.googleapis.com/translate_a/single?client=gtx`, `api.dictionaryapi.dev` y fallback offline) o hacia **Google Gemini** / **OpenAI** con streaming SSE.
+   - `storageService.ts`: Persiste en `localStorage` la configuración del usuario, onboarding, voces seleccionadas y las últimas 50 traducciones con favoritos.
+3. **Capa de Puente y Orquestación (`electron/`):**
+   - `preload.js`: Expone `window.electronAPI` con `contextIsolation: true` y `nodeIntegration: false`.
+   - `main.js`: Administra el ciclo de vida de la ventana transparente (`alwaysOnTop`, ocultar al perder foco salvo que esté fijada), el ícono de Tray, atajos globales (`Cmd+Alt+D`, `Cmd+Alt+O`), captura de selección y `Auto-Replace` vía `osascript`, síntesis de voz nativa (`say`) y verificación dinámica de permisos de Accesibilidad.
+4. **Capa Nativa macOS (`native/` → `bin/`):**
+   Binarios compilados con `swiftc` e incluidos en `extraResources`:
+   - `cmd-tap-listener`: Monitor global de eventos (`NSEvent`) para detectar la doble pulsación rápida `Cmd+Cmd`.
+   - `ocr-helper`: Extrae texto de capturas interactivas (`screencapture -i`) mediante `Vision.framework`.

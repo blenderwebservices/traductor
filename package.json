@@ -14,7 +14,9 @@
     "build:dmg": "bash scripts/build-dmg.sh",
     "dist:dmg": "bash scripts/build-dmg.sh",
     "dist:dir": "npm run build && electron-builder --mac dir",
-    "dist": "npm run build && electron-builder --mac"
+    "dist": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build:ui && electron-builder --win nsis",
+    "dist:win-portable": "npm run build:ui && electron-builder --win portable"
   },
   "build": {
     "appId": "com.astro.traductor",
@@ -28,7 +30,23 @@
         "dmg"
       ],
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extraResources": [
+        {
+          "from": "bin",
+          "to": "bin"
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     },
     "dmg": {
       "title": "Astro Traductor IA",
@@ -48,14 +66,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "bin/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "bin",
-        "to": "bin"
-      }
     ]
   },
   "keywords": [

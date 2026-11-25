@@ -78,6 +78,11 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
       window.electronAPI.setWindowPinned(!!settings.isWindowPinned);
     }
     refreshAccessibility();
+    if (window.electronAPI?.onAccessibilityChanged) {
+      return window.electronAPI.onAccessibilityChanged((trusted) => {
+        setHasAccessibility(trusted);
+      });
+    }
   }, []);
 
   // Main translation function

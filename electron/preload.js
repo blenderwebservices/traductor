@@ -37,5 +37,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event, theme) => callback(theme);
     ipcRenderer.on('theme-changed', handler);
     return () => ipcRenderer.removeListener('theme-changed', handler);
+  },
+  onAccessibilityChanged: (callback) => {
+    const handler = (_event, trusted) => callback(trusted);
+    ipcRenderer.on('accessibility-changed', handler);
+    return () => ipcRenderer.removeListener('accessibility-changed', handler);
   }
 });

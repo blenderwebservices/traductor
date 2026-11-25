@@ -56,10 +56,15 @@ function createWindow() {
     }
   });
 
-  // Notify renderer on focus to check clipboard and place cursor at end
+  // Notify renderer on window focus (auto-paste clipboard + accessibility check)
   mainWindow.on('focus', () => {
+    const trusted = isAccessibilityGranted(false);
+    if (trusted && !cmdTapProcess) {
+      startDoubleCmdListener();
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('window-focus');
+      mainWindow.webContents.send('accessibility-changed', trusted);
     }
   });
 
@@ -74,38 +79,35 @@ function createWindow() {
 // Read current active selection from the frontmost application
 async function captureActiveSelection() {
   return new Promise((resolve) => {
-    let previousClipboard = '';
-    try {
-      const prev = clipboard.readText();
-      if (typeof prev === 'string') {
-        previousClipboard = prev.trim();
+    const readClipboard = () => {
+      try {
+        const raw = clipboard.readText();
+        const current = typeof raw === 'string' ? raw.trim() : '';
+        resolve(current.length > 0 ? current : '');
+      } catch (err) {
+        resolve('');
       }
-    } catch (e) {}
+    };
 
-    const script = `
-      tell application "System Events"
-        set frontApp to name of first application process whose frontmost is true
-        if frontApp is not "Electron" and frontApp is not "Astro" then
-          keystroke "c" using command down
-        end if
-      end tell
-    `;
-
-    exec(`osascript -e '${script}'`, { timeout: 400 }, () => {
-      setTimeout(() => {
-        try {
-          const raw = clipboard.readText();
-          const current = typeof raw === 'string' ? raw.trim() : '';
-          if (current.length > 0) {
-            resolve(current);
-          } else {
-            resolve('');
-          }
-        } catch (err) {
-          resolve('');
-        }
-      }, 70);
-    });
+    if (process.platform === 'darwin') {
+      const script = `
+        tell application "System Events"
+          set frontApp to name of first application process whose frontmost is true
+          if frontApp is not "Electron" and frontApp is not "Astro" then
+            keystroke "c" using command down
+          end if
+        end tell
+      `;
+      exec(`osascript -e '${script}'`, { timeout: 400 }, () => {
+        setTimeout(readClipboard, 70);
+      });
+    } else if (process.platform === 'win32') {
+      exec('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait(\'^c\')"', { timeout: 600 }, () => {
+        setTimeout(readClipboard, 90);
+      });
+    } else {
+      readClipboard();
+    }
   });
 }
 
@@ -163,8 +165,17 @@ function getBinPath(binaryName) {
   return path.join(__dirname, '..', 'bin', binaryName);
 }
 
-// Start native double-command tap listener in background
+// Start native double-command tap listener in background (macOS only)
 function startDoubleCmdListener() {
+  if (process.platform !== 'darwin') {
+    return;
+  }
+  if (!isAccessibilityGranted(false)) {
+    return;
+  }
+  if (cmdTapProcess) {
+    return;
+  }
   const binaryPath = getBinPath('cmd-tap-listener');
   if (!fs.existsSync(binaryPath)) {
     console.warn('Native cmd-tap-listener binary not found at:', binaryPath);
@@ -179,7 +190,7 @@ function startDoubleCmdListener() {
       if (output.includes('CMD_DOUBLE_TAP')) {
         showModal();
       } else if (output.includes('ACCESSIBILITY_REQUIRED')) {
-        console.log('Accessibility permissions requested by listener');
+        console.log('Accessibility permissions required by listener');
       }
     });
 
@@ -189,14 +200,19 @@ function startDoubleCmdListener() {
 
     cmdTapProcess.on('close', (code) => {
       console.log('cmd-tap-listener exited with code:', code);
+      cmdTapProcess = null;
     });
   } catch (e) {
     console.error('Failed to spawn cmd-tap-listener:', e);
+    cmdTapProcess = null;
   }
 }
 
 // OCR Screen Capture implementation
 async function triggerScreenOCR() {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'OCR nativo disponible solo en macOS por ahora' };
+  }
   return new Promise((resolve) => {
     const tmpFile = `/tmp/astro_ocr_${Date.now()}.png`;
     const ocrBinary = getBinPath('ocr-helper');
@@ -241,20 +257,35 @@ function autoReplaceText(text) {
   }
 
   setTimeout(() => {
-    const pasteScript = `
-      tell application "System Events"
-        keystroke "v" using command down
-      end tell
-    `;
-    exec(`osascript -e '${pasteScript}'`, (err) => {
-      if (err) console.error('Error pasting replacement text:', err);
-    });
+    if (process.platform === 'darwin') {
+      const pasteScript = `
+        tell application "System Events"
+          keystroke "v" using command down
+        end tell
+      `;
+      exec(`osascript -e '${pasteScript}'`, (err) => {
+        if (err) console.error('Error pasting replacement text:', err);
+      });
+    } else if (process.platform === 'win32') {
+      exec('powershell -NoProfile -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait(\'^v\')"', (err) => {
+        if (err) console.error('Error pasting replacement text:', err);
+      });
+    }
   }, 90);
 }
 
 // Native Text-to-Speech
 function speakText(text, lang = 'es', voice = null) {
   if (!text) return;
+  if (process.platform === 'win32') {
+    const safeText = text.replace(/'/g, "''");
+    exec(`powershell -NoProfile -Command "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Speak('${safeText}')"`, (err) => {
+      if (err) console.error('Windows TTS error:', err);
+    });
+    return;
+  }
+  if (process.platform !== 'darwin') return;
+
   let chosenVoice = voice && voice !== 'auto' ? voice : null;
   if (!chosenVoice) {
     if (lang.startsWith('es')) {
@@ -315,7 +346,11 @@ function getSystemVoices() {
 }
 
 function stopSpeaking() {
-  exec('killall say', () => {});
+  if (process.platform === 'darwin') {
+    exec('killall say', () => {});
+  } else if (process.platform === 'win32') {
+    exec('taskkill /FI "WINDOWTITLE eq *powershell*" /F', () => {});
+  }
 }
 
 function createTray() {

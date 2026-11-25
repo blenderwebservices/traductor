@@ -2,8 +2,8 @@ import Cocoa
 import Foundation
 import ApplicationServices
 
-// Check accessibility
-let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+// Check accessibility without prompting (main Electron app handles user prompt)
+let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
 let isTrusted = AXIsProcessTrustedWithOptions(options)
 
 if !isTrusted {

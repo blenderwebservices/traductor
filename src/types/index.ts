@@ -89,6 +89,7 @@ declare global {
       onShowWithText: (callback: (data: { text: string; isDarkMode: boolean }) => void) => () => void;
       onWindowFocus: (callback: () => void) => () => void;
       onThemeChanged: (callback: (theme: 'dark' | 'light') => void) => () => void;
+      onAccessibilityChanged: (callback: (trusted: boolean) => void) => () => void;
     };
   }
 }
