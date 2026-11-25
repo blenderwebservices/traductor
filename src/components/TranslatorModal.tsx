@@ -33,6 +33,8 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
   const [tone, setTone] = useState<Tone>('standard');
   const [isTranslating, setIsTranslating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sourceCopied, setSourceCopied] = useState(false);
+  const [pasted, setPasted] = useState(false);
 
   // Special modes
   const [dictionaryEntry, setDictionaryEntry] = useState<DictionaryEntry | null>(null);
@@ -304,6 +306,41 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
     setTimeout(() => setCopied(false), 1800);
   };
 
+  // Copy source text to clipboard
+  const handleCopySource = () => {
+    if (!sourceText) return;
+    lastCopiedByAstroRef.current = sourceText;
+    if (window.electronAPI) {
+      window.electronAPI.copyToClipboard(sourceText);
+    } else {
+      navigator.clipboard?.writeText(sourceText);
+    }
+    setSourceCopied(true);
+    setTimeout(() => setSourceCopied(false), 1800);
+  };
+
+  // Paste clipboard into source text box and trigger translation
+  const handlePasteClipboard = async () => {
+    try {
+      let clipboardText = '';
+      if (window.electronAPI?.getClipboardText) {
+        clipboardText = await window.electronAPI.getClipboardText();
+      } else if (navigator.clipboard?.readText) {
+        clipboardText = await navigator.clipboard.readText();
+      }
+
+      if (typeof clipboardText === 'string' && clipboardText.trim().length > 0) {
+        setSourceText(clipboardText);
+        executeTranslation(clipboardText);
+        placeCursorAtEnd(clipboardText);
+        setPasted(true);
+        setTimeout(() => setPasted(false), 1500);
+      }
+    } catch (e) {
+      console.warn('Error pasting from clipboard:', e);
+    }
+  };
+
   // OCR screen capture trigger
   const handleOCR = async () => {
     setOcrError(null);
@@ -521,8 +558,48 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
                 style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
                 accessibilityLabel="Captura OCR de pantalla"
               >
-                <Text style={styles.miniButtonIcon}>📷 OCR</Text>
+                <Text style={[styles.miniButtonIcon, isDark ? styles.textDark : styles.textLight]}>📷 OCR</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handlePasteClipboard}
+                style={[
+                  styles.miniButton,
+                  pasted && styles.copiedButton,
+                  isDark ? styles.miniButtonDark : styles.miniButtonLight,
+                ]}
+                accessibilityLabel="Pegar texto del portapapeles"
+              >
+                <Text
+                  style={[
+                    styles.miniButtonIcon,
+                    pasted ? styles.copiedText : isDark ? styles.textDark : styles.textLight,
+                  ]}
+                >
+                  {pasted ? '✓ ¡Pegado!' : '📋 Pegar'}
+                </Text>
+              </TouchableOpacity>
+
+              {sourceText.trim().length > 0 && (
+                <TouchableOpacity
+                  onPress={handleCopySource}
+                  style={[
+                    styles.miniButton,
+                    sourceCopied && styles.copiedButton,
+                    isDark ? styles.miniButtonDark : styles.miniButtonLight,
+                  ]}
+                  accessibilityLabel="Copiar texto original"
+                >
+                  <Text
+                    style={[
+                      styles.miniButtonIcon,
+                      sourceCopied ? styles.copiedText : isDark ? styles.textDark : styles.textLight,
+                    ]}
+                  >
+                    {sourceCopied ? '✓ Copiado' : '📄 Copiar'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               {sourceText.trim().length > 0 && (
                 <TouchableOpacity
@@ -530,7 +607,7 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
                   style={[styles.miniButton, isDark ? styles.miniButtonDark : styles.miniButtonLight]}
                   accessibilityLabel={speakingTarget === 'source' ? 'Detener pronunciación' : 'Pronunciar texto original'}
                 >
-                  <Text style={styles.miniButtonIcon}>
+                  <Text style={[styles.miniButtonIcon, isDark ? styles.textDark : styles.textLight]}>
                     {speakingTarget === 'source' ? '⏹ Detener' : '🔊'}
                   </Text>
                 </TouchableOpacity>
@@ -563,9 +640,31 @@ export const TranslatorModal: React.FC<TranslatorModalProps> = ({ isDark, initia
         {/* Translation Output Box */}
         <View style={[styles.outputBox, isDark ? styles.boxDark : styles.boxLight]}>
           <View style={styles.outputHeader}>
-            <Text style={[styles.outputLabel, isDark ? styles.textMutedDark : styles.textMutedLight]}>
-              Traducción {targetLang.toUpperCase()}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.outputLabel, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Traducción {targetLang.toUpperCase()}
+              </Text>
+              {translatedText.trim().length > 0 && (
+                <TouchableOpacity
+                  onPress={handleCopy}
+                  style={[
+                    styles.miniButton,
+                    copied && styles.copiedButton,
+                    isDark ? styles.miniButtonDark : styles.miniButtonLight,
+                  ]}
+                  accessibilityLabel="Copiar traducción"
+                >
+                  <Text
+                    style={[
+                      styles.miniButtonIcon,
+                      copied ? styles.copiedText : isDark ? styles.textDark : styles.textLight,
+                    ]}
+                  >
+                    {copied ? '✓ Copiado' : '📋 Copiar'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
             {isTranslating && (
               <View style={styles.streamingIndicator}>
                 <ActivityIndicator size="small" color="#3b82f6" />
