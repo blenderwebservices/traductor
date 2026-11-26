@@ -111,6 +111,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Text style={[styles.headerTitle, isDark ? styles.textDark : styles.textLight]}>
                 Configuración de Astro
               </Text>
+              <View style={[styles.versionBadge, isDark ? styles.versionBadgeDark : styles.versionBadgeLight]}>
+                <Text style={styles.versionBadgeText}>
+                  v1.0.{typeof __APP_BUILD_TIMESTAMP__ !== 'undefined' ? __APP_BUILD_TIMESTAMP__ : 'dev'}
+                </Text>
+              </View>
             </View>
             <TouchableOpacity onPress={onClose}>
               <Text style={styles.closeIcon}>✕</Text>
@@ -123,13 +128,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <View style={styles.accessHeader}>
                 <Text style={styles.accessIcon}>{hasAccessibility ? '✅' : '⚠️'}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.accessTitle, isDark ? styles.textDark : styles.textLight]}>
-                    Permisos de Accesibilidad macOS
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                    <Text style={[styles.accessTitle, isDark ? styles.textDark : styles.textLight]}>
+                      Permisos de Accesibilidad macOS
+                    </Text>
+                    <Text style={{ fontSize: 9, fontFamily: 'monospace', color: isDark ? '#94a3b8' : '#64748b' }}>
+                      ID: com.astro.traductor
+                    </Text>
+                  </View>
                   <Text style={[styles.accessDesc, isDark ? styles.textMutedDark : styles.textMutedLight]}>
                     {hasAccessibility
-                      ? 'Permisos activos: Cmd+Cmd, lectura de selección y Auto-Replace funcionan al 100%.'
-                      : 'Requerido para la doble pulsación rápida Cmd+Cmd y reemplazo en línea.'}
+                      ? 'Permisos activos y vinculados a com.astro.traductor: Cmd+Cmd, lectura de selección y Auto-Replace funcionan al 100%.'
+                      : 'Requerido para la doble pulsación Cmd+Cmd. Si reinstalaste o actualizaste la app, asegúrate de activar "Astro" en Ajustes del Sistema > Privacidad y Seguridad > Accesibilidad.'}
                   </Text>
                 </View>
               </View>
@@ -512,14 +522,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Footer */}
           <View style={[styles.footer, isDark ? styles.borderDark : styles.borderLight]}>
-            <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-              <Text style={[styles.cancelBtnText, isDark ? styles.textDark : styles.textLight]}>
-                Cancelar
+            <View style={styles.footerVersionInfo}>
+              <Text style={[styles.buildTimestampText, isDark ? styles.textMutedDark : styles.textMutedLight]}>
+                Compilación: {typeof __APP_BUILD_DATE__ !== 'undefined' ? __APP_BUILD_DATE__ : 'desarrollo'}
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
-              <Text style={styles.saveBtnText}>Guardar Ajustes</Text>
-            </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
+                <Text style={[styles.cancelBtnText, isDark ? styles.textDark : styles.textLight]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSave} style={styles.saveBtn}>
+                <Text style={styles.saveBtnText}>Guardar Ajustes</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -1013,12 +1030,37 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
     gap: 8,
+  },
+  versionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  versionBadgeDark: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  versionBadgeLight: {
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+  },
+  versionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    color: '#3b82f6',
+  },
+  footerVersionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buildTimestampText: {
+    fontSize: 10,
+    fontFamily: 'monospace',
   },
   cancelBtn: {
     paddingHorizontal: 12,

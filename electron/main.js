@@ -1,7 +1,10 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeTheme, systemPreferences, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeTheme, systemPreferences, Tray, Menu, nativeImage, shell } = require('electron');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
+
+// Ensure consistent application ID for macOS TCC permissions and notifications
+app.setAppUserModelId('com.astro.traductor');
 
 // Suppress internal Chromium EGL/GL driver fallback logs on macOS
 app.commandLine.appendSwitch('log-level', '3');
@@ -441,21 +444,54 @@ ipcMain.handle('check-accessibility', () => {
 });
 
 ipcMain.on('open-accessibility-prefs', () => {
-  isAccessibilityGranted(true);
+  if (process.platform === 'darwin') {
+    systemPreferences.isTrustedAccessibilityClient(true);
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+  }
 });
+
+let accessibilityMonitorTimer = null;
+function startAccessibilityMonitor() {
+  if (process.platform !== 'darwin') return;
+  if (accessibilityMonitorTimer) clearInterval(accessibilityMonitorTimer);
+
+  accessibilityMonitorTimer = setInterval(() => {
+    const trusted = isAccessibilityGranted(false);
+    if (trusted) {
+      if (!cmdTapProcess) {
+        startDoubleCmdListener();
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('accessibility-changed', true);
+      }
+    } else {
+      if (cmdTapProcess) {
+        cmdTapProcess.kill();
+        cmdTapProcess = null;
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('accessibility-changed', false);
+      }
+    }
+  }, 2000);
+}
 
 app.whenReady().then(() => {
   createWindow();
   registerGlobalShortcuts();
   startDoubleCmdListener();
   createTray();
-  isAccessibilityGranted(false);
+  startAccessibilityMonitor();
   mainWindow.once('ready-to-show', () => {
     showModal('');
   });
 });
 
 app.on('will-quit', () => {
+  if (accessibilityMonitorTimer) {
+    clearInterval(accessibilityMonitorTimer);
+    accessibilityMonitorTimer = null;
+  }
   globalShortcut.unregisterAll();
   if (cmdTapProcess) {
     cmdTapProcess.kill();

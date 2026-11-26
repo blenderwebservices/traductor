@@ -3,6 +3,7 @@ set -e
 
 # Calculate timestamp in format YYYY.MM.DD.HHMM
 TIMESTAMP=$(date +"%Y.%m.%d.%H%M")
+export BUILD_TIMESTAMP="${TIMESTAMP}"
 CITAS_DMG_NAME="Citas-1.0.${TIMESTAMP}.dmg"
 ASTRO_DMG_NAME="Astro-1.0.${TIMESTAMP}.dmg"
 

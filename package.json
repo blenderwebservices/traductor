@@ -6,7 +6,7 @@
   "scripts": {
     "dev:ui": "vite",
     "build:ui": "vite build",
-    "build:native": "mkdir -p bin && swiftc native/ocr-helper.swift -o bin/ocr-helper -O && swiftc native/cmd-tap-listener.swift -o bin/cmd-tap-listener -O",
+    "build:native": "mkdir -p bin && swiftc native/ocr-helper.swift -o bin/ocr-helper -O && swiftc native/cmd-tap-listener.swift -o bin/cmd-tap-listener -O && codesign -s - --force --identifier 'com.astro.traductor.ocr-helper' -r='designated => identifier \"com.astro.traductor.ocr-helper\"' bin/ocr-helper && codesign -s - --force --identifier 'com.astro.traductor.cmd-tap-listener' -r='designated => identifier \"com.astro.traductor.cmd-tap-listener\"' bin/cmd-tap-listener",
     "electron:start": "node electron/start.js",
     "build": "npm run build:native && npm run build:ui",
     "start": "npm run build:ui && node electron/start.js",
@@ -21,6 +21,7 @@
   "build": {
     "appId": "com.astro.traductor",
     "productName": "Astro",
+    "afterPack": "scripts/after-pack.js",
     "directories": {
       "output": "release"
     },
